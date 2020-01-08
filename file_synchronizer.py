@@ -8,6 +8,7 @@ import hashlib
 import os
 import glob
 import shutil
+import argparse
 from dataclasses import dataclass
 import tqdm
 from PyQt5.QtWidgets import QFileDialog, QApplication
@@ -35,35 +36,76 @@ class FileInfo:
         self.size = os.path.getsize(filepath)
         if use_hash:
             self.hash = get_hash(filepath)
-    
+
+
+def get_args():
+    """
+    Get command-line arguments
+    """
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "folder1", help="First folder to synchronize", nargs="?")
+    parser.add_argument(
+        "folder2", help="Second folder to synchronize", nargs="?")
+    parser.add_argument(
+        "-c", "--copy",
+        help="Create copies instead of modifying in place",
+        action="store_true")
+    return parser.parse_args()
+
 
 def main():
-    print("Select directories to process...")
-    dir1, dir2 = get_dirs()
+    """
+    Main script entry point
+    """
+    args = get_args()
+    if not args.folder1:
+        dir1 = get_dir_gui("Select directory 1")
+    else:
+        dir1 = args.folder1
+    if not args.folder2:
+        dir2 = get_dir_gui("Select directory 2")
+    else:
+        dir2 = args.folder2
+    # dir1, dir2 = get_dirs()
+    print("Directory selected - 1:", dir1)
+    if not dir1:
+        print("No directory 1 selected, exiting")
+        return
+    print("Directory selected - 2:", dir2)
+    if not dir2:
+        print("No directory 2 selected, exiting")
+        return
     print("Getting contents...")
     contents1 = get_files(dir1)
     contents2 = get_files(dir2)
     print("Comparing contents...")
-    with open(os.path.join(__script_dir__, 'comparison.txt'), 'w') as fout:
+    with open(os.path.join(__script_dir__, 'comparison.txt'), 'wb') as fout:
         for file_id, file_infos in contents1.items():
             if file_id in contents2:
                 # print("Duplicate file found:")
                 # print(file_infos)
                 # print(contents2[file_id])
-                fout.write(f'Duplicate: {file_id}\n')
+                fout.write(b''.join((
+                    b'Duplicate: ',
+                    bytes(str(file_id), 'utf8', 'ignore'),
+                    b'\n')))
                 for finfo in file_infos:
-                    fout.write(f'  {finfo.filepath}\n')
+                    fout.write(bytes(finfo.filepath, 'utf8', 'ignore'))
+                    fout.write(b'\n')
                 for finfo in contents2[file_id]:
-                    fout.write(f'  {finfo.filepath}\n')
-                    
-    
+                    fout.write(bytes(finfo.filepath, 'utf8', 'ignore'))
+                    fout.write(b'\n')
+    create_synchronized(contents1, contents2, create_copy=args.copy)
+
+
 
 def count_files(folder):
     num = 0
     for root, folders, files in os.walk(folder):
         num += len(files)
     return num
-            
+
 
 def get_files(folder):
     num = count_files(folder)
@@ -84,7 +126,7 @@ def get_files(folder):
             else:
                 contents[file_id] = [file_info]
             progress.update()
-    return contents 
+    return contents
 
 
 def get_hash(filepath):
@@ -94,9 +136,13 @@ def get_hash(filepath):
         while chunk:
             file_hash.update(chunk)
             chunk = fobj.read(8192)
-    return file_hash    
+    return file_hash
 
-    
+
+def get_dir_gui(prompt="Select directory"):
+    return str(QFileDialog.getExistingDirectory(None, prompt))
+
+
 def get_dirs():
     """
     Gets two directories graphically
@@ -104,6 +150,13 @@ def get_dirs():
     dir1 = str(QFileDialog.getExistingDirectory(None, "Select Directory 1"))
     dir2 = str(QFileDialog.getExistingDirectory(None, "Select Directory 2"))
     return dir1, dir2
+
+
+def create_synchronized(contents1, contents2, create_copy=True):
+    """
+    Performs the actual synchronization
+    """
+    raise NotImplementedError("Not performing actual synchronization")
 
 
 if __name__ == "__main__":
