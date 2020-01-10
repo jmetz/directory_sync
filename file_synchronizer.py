@@ -211,6 +211,20 @@ def create_synchronized(
             print("Aborting")
             return
 
+    if create_copy:
+        copy_path1 = os.path.join(contents1.root, b'AUTOMATIC_BACKUP')
+        if os.path.isdir(copy_path1):
+            raise Exception(
+                b'AUTOMATIC_BACKUP directory 1 already exists at\n%s' %
+                copy_path1)
+        copy_path2 = os.path.join(contents2.root, b'AUTOMATIC_BACKUP')
+        if os.path.isdir(copy_path2):
+            raise Exception(
+                b'AUTOMATIC_BACKUP directory 2 already exists at\n%s' %
+                copy_path2)
+        shutil.copytree(contents1.root, copy_path1)
+        shutil.copytree(contents2.root, copy_path2)
+
     for file_id, file_infos in contents1.items():
         if len(file_infos) > 1:
             # Delete the older files
@@ -228,9 +242,13 @@ def create_synchronized(
 
         if file_id not in contents2:
             # Copy file to contents2
+            destpath = b"%s%s" % (
+                contents2.root,
+                keep_file.filepath[len(contents1.root):])
             print(
                 "Copying the kept file (", keep_file.filepath,
-                ") to", contents2.root)
+                ") to", destpath)
+            shutil.copy2(keep_file.filepath, destpath)
 
     for file_id, file_infos in contents2.items():
         if len(file_infos) > 1:
@@ -249,9 +267,14 @@ def create_synchronized(
 
         if file_id not in contents1:
             # Copy file to contents1
+            destpath = b"%s%s" % (
+                contents1.root,
+                keep_file.filepath[len(contents2.root):])
             print(
                 "Copying the kept file (", keep_file.filepath,
-                ") to", contents1.root)
+                ") to", destpath)
+            shutil.copy2(keep_file.filepath, destpath)
+
 
 
 if __name__ == "__main__":
