@@ -127,3 +127,6 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+testdir1
+testdir2
+comparison.txt
