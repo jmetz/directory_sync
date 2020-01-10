@@ -10,24 +10,33 @@ import glob
 import shutil
 import argparse
 from dataclasses import dataclass
+import numpy as np
 import tqdm
-from PyQt5.QtWidgets import QFileDialog, QApplication
+# pylint: disable=no-name-in-module
+from PyQt5.QtWidgets import (
+    QFileDialog,
+    QApplication,
+)
 
 __qapp__ = QApplication([])
 __script_dir__ = os.path.dirname(__file__)
 
 
 @dataclass
-class FileInfo:
-    filepath: str
-    filename: str
-    folder: str
+class FileInfo:  # pylint: disable=too-many-instance-attributes
+    """
+    Class to hold file information
+    """
+    filepath: bytes
+    filename: bytes
+    folder: bytes
     atime: float
     mtime: float
     ctime: float
     size: int
 
     def __init__(self, filepath, use_hash=False):
+        filepath = bytes(filepath, 'utf8', 'ignore')
         self.filepath = filepath
         self.folder, self.filename = os.path.split(filepath)
         self.atime = os.path.getatime(filepath)
@@ -36,6 +45,14 @@ class FileInfo:
         self.size = os.path.getsize(filepath)
         if use_hash:
             self.hash = get_hash(filepath)
+
+
+class DirectoryContents(dict):
+
+    def __init__(self, folder):
+        self.root = bytes(folder, 'utf8', 'ignore')
+        super().__init__()
+
 
 
 def get_args():
@@ -50,6 +67,10 @@ def get_args():
     parser.add_argument(
         "-c", "--copy",
         help="Create copies instead of modifying in place",
+        action="store_true")
+    parser.add_argument(
+        "-d", "--dry-run",
+        help="Only reports what would happen",
         action="store_true")
     return parser.parse_args()
 
@@ -80,38 +101,29 @@ def main():
     contents1 = get_files(dir1)
     contents2 = get_files(dir2)
     print("Comparing contents...")
-    with open(os.path.join(__script_dir__, 'comparison.txt'), 'wb') as fout:
-        for file_id, file_infos in contents1.items():
-            if file_id in contents2:
-                # print("Duplicate file found:")
-                # print(file_infos)
-                # print(contents2[file_id])
-                fout.write(b''.join((
-                    b'Duplicate: ',
-                    bytes(str(file_id), 'utf8', 'ignore'),
-                    b'\n')))
-                for finfo in file_infos:
-                    fout.write(bytes(finfo.filepath, 'utf8', 'ignore'))
-                    fout.write(b'\n')
-                for finfo in contents2[file_id]:
-                    fout.write(bytes(finfo.filepath, 'utf8', 'ignore'))
-                    fout.write(b'\n')
-    create_synchronized(contents1, contents2, create_copy=args.copy)
-
+    write_comparison_to_file(contents1, contents2)
+    create_synchronized(
+        contents1, contents2, create_copy=args.copy, dry_run=args.dry_run)
 
 
 def count_files(folder):
+    """
+    Counts the number of files under a folder using `os.walk`
+    """
     num = 0
-    for root, folders, files in os.walk(folder):
+    for _, _, files in os.walk(folder):
         num += len(files)
     return num
 
 
 def get_files(folder):
+    """
+    Gets all files under a current folder
+    """
     num = count_files(folder)
-    contents = {}
+    contents = DirectoryContents(folder)
     progress = tqdm.tqdm(total=num)
-    for root, folders, files in os.walk(folder):
+    for root, _, files in os.walk(folder):
         for filename in files:
             filepath = os.path.join(root, filename)
             # file_info = FileInfo(filepath, use_hash=False)
@@ -130,6 +142,9 @@ def get_files(folder):
 
 
 def get_hash(filepath):
+    """
+    Get's a file objects' hash
+    """
     with open(filepath, "rb") as fobj:
         file_hash = hashlib.md5()
         chunk = fobj.read(8192)
@@ -140,6 +155,9 @@ def get_hash(filepath):
 
 
 def get_dir_gui(prompt="Select directory"):
+    """
+    Uses Qt to get existing folder using a graphical user interface
+    """
     return str(QFileDialog.getExistingDirectory(None, prompt))
 
 
@@ -152,11 +170,88 @@ def get_dirs():
     return dir1, dir2
 
 
-def create_synchronized(contents1, contents2, create_copy=True):
+def write_comparison_to_file(
+        contents1, contents2,
+        filename=os.path.join(__script_dir__, 'comparison.txt')):
+    """
+    Writes the comparison of two folder contents to file
+    """
+    with open(filename, 'wb') as fout:
+        fout.write(b'Processing folder 1 [%s]\n' % contents1.root)
+        for file_id, file_infos in contents1.items():
+            bfile_id = bytes(str(file_id), 'utf8', 'ignore')
+            if len(file_infos) > 1:
+                fout.write(b'  Duplicate: %s \n' % bfile_id)
+                for finfo in file_infos:
+                    fout.write(b'  %s\n' % finfo.filepath)
+            if file_id not in contents2:
+                fout.write(
+                    b'  %s MISSING from %s\n' % (bfile_id, contents2.root))
+        fout.write(b'Processing folder 2 [%s]\n' % contents2.root)
+        for file_id, file_infos in contents2.items():
+            bfile_id = bytes(str(file_id), 'utf8', 'ignore')
+            if len(file_infos) > 1:
+                fout.write(b'  Duplicate: %s \n' % bfile_id)
+                for finfo in file_infos:
+                    fout.write(b'  %s\n' % finfo.filepath)
+            if file_id not in contents1:
+                fout.write(
+                    b'  %s MISSING from %s\n' % (bfile_id, contents1.root))
+
+
+def create_synchronized(
+        contents1, contents2, create_copy=True, dry_run=True):
     """
     Performs the actual synchronization
     """
-    raise NotImplementedError("Not performing actual synchronization")
+    if not dry_run:
+        ans = input(
+            "Warning, this is not a drill, do you want to continue [Ny]?")
+        if ans.lower() != "y":
+            print("Aborting")
+            return
+
+    for file_id, file_infos in contents1.items():
+        if len(file_infos) > 1:
+            # Delete the older files
+            mtimes = [info.mtime for info in file_infos]
+            youngest = np.argmax(mtimes)
+            keep_file = file_infos.pop(youngest)
+            print("Keeping", keep_file.filepath)
+            # Delete remaining
+            for file_info in file_infos:
+                print("Removing", file_info.filepath)
+                if not dry_run:
+                    os.remove(file_info.filepath)
+        else:
+            keep_file = file_infos[0]
+
+        if file_id not in contents2:
+            # Copy file to contents2
+            print(
+                "Copying the kept file (", keep_file.filepath,
+                ") to", contents2.root)
+
+    for file_id, file_infos in contents2.items():
+        if len(file_infos) > 1:
+            # Delete the older files
+            mtimes = [info.mtime for info in file_infos]
+            youngest = np.argmax(mtimes)
+            keep_file = file_infos.pop(youngest)
+            print("Keeping", keep_file.filepath)
+            # Delete remaining
+            for file_info in file_infos:
+                print("Removing", file_info.filepath)
+                if not dry_run:
+                    os.remove(file_info.filepath)
+        else:
+            keep_file = file_infos[0]
+
+        if file_id not in contents1:
+            # Copy file to contents1
+            print(
+                "Copying the kept file (", keep_file.filepath,
+                ") to", contents1.root)
 
 
 if __name__ == "__main__":
