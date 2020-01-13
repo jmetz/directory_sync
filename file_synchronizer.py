@@ -9,12 +9,15 @@ import os
 import glob
 import shutil
 import argparse
+import platform
+import subprocess
 from dataclasses import dataclass
 import numpy as np
 import tqdm
 # pylint: disable=no-name-in-module
 from PyQt5.QtWidgets import (
     QFileDialog,
+    QMessageBox,
     QApplication,
 )
 
@@ -80,30 +83,69 @@ def main():
     Main script entry point
     """
     args = get_args()
+    startoptionwindow = QMessageBox()
+    startoptionwindow.setWindowTitle("File Synchronizer")
+    startoptionwindow.setText("Please select a run mode")
+    cancelbutton = startoptionwindow.addButton(
+        "Cancel", QMessageBox.ActionRole)
+    dryrunbutton = startoptionwindow.addButton(
+        "Dry-run (no changes, only creates comparison file)",
+        QMessageBox.ActionRole)
+    copyrunbutton = startoptionwindow.addButton(
+        "Use copy",
+        QMessageBox.ActionRole)
+    overwritebutton = startoptionwindow.addButton(
+        "Overwrite originals",
+        QMessageBox.ActionRole)
+    startoptionwindow.exec()
+    clicked = startoptionwindow.clickedButton()
+    if clicked == cancelbutton:
+        print("Cancelling")
+        return
+    if clicked == dryrunbutton:
+        args.dry_run = True
+    elif clicked == copyrunbutton:
+        args.copy = True
+        args.dry_run = False
+    elif clicked == overwritebutton:
+        args.copy = False
+        args.dry_run = False
+    else:
+        print("Unhandled option", clicked)
+        return
     if not args.folder1:
         dir1 = get_dir_gui("Select directory 1")
     else:
         dir1 = args.folder1
-    if not args.folder2:
-        dir2 = get_dir_gui("Select directory 2")
-    else:
-        dir2 = args.folder2
-    # dir1, dir2 = get_dirs()
     print("Directory selected - 1:", dir1)
     if not dir1:
         print("No directory 1 selected, exiting")
         return
+
+    if not args.folder2:
+        dir2 = get_dir_gui("Select directory 2")
+    else:
+        dir2 = args.folder2
     print("Directory selected - 2:", dir2)
     if not dir2:
         print("No directory 2 selected, exiting")
         return
+    # dir1, dir2 = get_dirs()
     print("Getting contents...")
     contents1 = get_files(dir1)
     contents2 = get_files(dir2)
     print("Comparing contents...")
-    write_comparison_to_file(contents1, contents2)
+    output_filepath = os.path.join(__script_dir__, 'comparison.txt')
+    write_comparison_to_file(contents1, contents2, filename=output_filepath)
     create_synchronized(
         contents1, contents2, create_copy=args.copy, dry_run=args.dry_run)
+
+    if platform.system() == 'Darwin':       # macOS
+        subprocess.call(('open', output_filepath))
+    elif platform.system() == 'Windows':    # Windows
+        os.startfile(output_filepath)
+    else:                                   # linux variants
+        subprocess.call(('xdg-open', output_filepath))
 
 
 def count_files(folder):
@@ -170,9 +212,7 @@ def get_dirs():
     return dir1, dir2
 
 
-def write_comparison_to_file(
-        contents1, contents2,
-        filename=os.path.join(__script_dir__, 'comparison.txt')):
+def write_comparison_to_file(contents1, contents2, filename):
     """
     Writes the comparison of two folder contents to file
     """
