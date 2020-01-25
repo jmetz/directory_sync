@@ -1,8 +1,9 @@
 # -*- coding: utf-8 -*-
-"""
-Editor de Spyder
+"""file_synchronizer.py
 
-Este es un archivo temporal.
+Folder synchronization and duplicate file remover
+
+J. Metz <metz.jp@gmail.com>
 """
 import hashlib
 import os
@@ -30,16 +31,15 @@ class FileInfo:  # pylint: disable=too-many-instance-attributes
     """
     Class to hold file information
     """
-    filepath: bytes
-    filename: bytes
-    folder: bytes
+    filepath: str
+    filename: str
+    folder: str
     atime: float
     mtime: float
     ctime: float
     size: int
 
     def __init__(self, filepath, use_hash=False):
-        filepath = bytes(filepath, 'utf8', 'ignore')
         self.filepath = filepath
         self.folder, self.filename = os.path.split(filepath)
         self.atime = os.path.getatime(filepath)
@@ -53,9 +53,8 @@ class FileInfo:  # pylint: disable=too-many-instance-attributes
 class DirectoryContents(dict):
 
     def __init__(self, folder):
-        self.root = bytes(folder, 'utf8', 'ignore')
+        self.root = folder
         super().__init__()
-
 
 
 def get_args():
@@ -216,27 +215,27 @@ def write_comparison_to_file(contents1, contents2, filename):
     """
     Writes the comparison of two folder contents to file
     """
-    with open(filename, 'wb') as fout:
-        fout.write(b'Processing folder 1 [%s]\n' % contents1.root)
+    with open(filename, 'w') as fout:
+        fout.write('Processing folder 1 [%s]\n' % contents1.root)
         for file_id, file_infos in contents1.items():
-            bfile_id = bytes(str(file_id), 'utf8', 'ignore')
+            bfile_id = str(file_id)
             if len(file_infos) > 1:
-                fout.write(b'  Duplicate: %s \n' % bfile_id)
+                fout.write('  Duplicate: %s \n' % bfile_id)
                 for finfo in file_infos:
-                    fout.write(b'  %s\n' % finfo.filepath)
+                    fout.write('  %s\n' % finfo.filepath)
             if file_id not in contents2:
                 fout.write(
-                    b'  %s MISSING from %s\n' % (bfile_id, contents2.root))
-        fout.write(b'Processing folder 2 [%s]\n' % contents2.root)
+                    '  %s MISSING from %s\n' % (bfile_id, contents2.root))
+        fout.write('Processing folder 2 [%s]\n' % contents2.root)
         for file_id, file_infos in contents2.items():
-            bfile_id = bytes(str(file_id), 'utf8', 'ignore')
+            bfile_id = str(file_id)
             if len(file_infos) > 1:
-                fout.write(b'  Duplicate: %s \n' % bfile_id)
+                fout.write('  Duplicate: %s \n' % bfile_id)
                 for finfo in file_infos:
-                    fout.write(b'  %s\n' % finfo.filepath)
+                    fout.write('  %s\n' % finfo.filepath)
             if file_id not in contents1:
                 fout.write(
-                    b'  %s MISSING from %s\n' % (bfile_id, contents1.root))
+                    '  %s MISSING from %s\n' % (bfile_id, contents1.root))
 
 
 def create_synchronized(
@@ -252,15 +251,15 @@ def create_synchronized(
             return
 
     if create_copy:
-        copy_path1 = os.path.join(contents1.root, b'AUTOMATIC_BACKUP')
+        copy_path1 = os.path.join(contents1.root, 'AUTOMATIC_BACKUP')
         if os.path.isdir(copy_path1):
             raise Exception(
-                b'AUTOMATIC_BACKUP directory 1 already exists at\n%s' %
+                'AUTOMATIC_BACKUP directory 1 already exists at\n%s' %
                 copy_path1)
-        copy_path2 = os.path.join(contents2.root, b'AUTOMATIC_BACKUP')
+        copy_path2 = os.path.join(contents2.root, 'AUTOMATIC_BACKUP')
         if os.path.isdir(copy_path2):
             raise Exception(
-                b'AUTOMATIC_BACKUP directory 2 already exists at\n%s' %
+                'AUTOMATIC_BACKUP directory 2 already exists at\n%s' %
                 copy_path2)
         shutil.copytree(contents1.root, copy_path1)
         shutil.copytree(contents2.root, copy_path2)
@@ -285,7 +284,7 @@ def create_synchronized(
 
         if file_id not in contents2:
             # Copy file to contents2
-            destpath = b"%s%s" % (
+            destpath = "%s%s" % (
                 contents2.root,
                 keep_file.filepath[len(contents1.root):])
             print(
@@ -295,7 +294,7 @@ def create_synchronized(
                 shutil.copy2(keep_file.filepath, destpath)
             except Exception:
                 print("FAILED TO COPY FILE")
-                
+
     for file_id, file_infos in contents2.items():
         if len(file_infos) > 1:
             # Delete the older files
@@ -316,7 +315,7 @@ def create_synchronized(
 
         if file_id not in contents1:
             # Copy file to contents1
-            destpath = b"%s%s" % (
+            destpath = "%s%s" % (
                 contents1.root,
                 keep_file.filepath[len(contents2.root):])
             print(
