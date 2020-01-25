@@ -55,12 +55,10 @@ class FileInfo:  # pylint: disable=too-many-instance-attributes
             self.mtime = os.path.getmtime(filepath)
         except Exception:
             self.mtime = -1
-            return None
         try:
             self.size = os.path.getsize(filepath)
         except Exception:
             self.size = -1
-            return None
         if use_hash:
             self.hash = get_hash(filepath)
 
@@ -184,7 +182,7 @@ def get_files(folder):
             filepath = os.path.join(root, filename)
             # file_info = FileInfo(filepath, use_hash=False)
             file_info = FileInfo(filepath)
-            if file_info is None:
+            if file_info.size == -1:
                 print("FAILED TO GET STATS FOR", filepath)
                 continue
             # file_id = file_info.hash
