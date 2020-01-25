@@ -276,7 +276,10 @@ def create_synchronized(
             for file_info in file_infos:
                 print("Removing", file_info.filepath)
                 if not dry_run:
-                    os.remove(file_info.filepath)
+                    try:
+                        os.remove(file_info.filepath)
+                    except Exeption:
+                        print("FAILED TO REMOVE FILE")
         else:
             keep_file = file_infos[0]
 
@@ -288,8 +291,11 @@ def create_synchronized(
             print(
                 "Copying the kept file (", keep_file.filepath,
                 ") to", destpath)
-            shutil.copy2(keep_file.filepath, destpath)
-
+            try:
+                shutil.copy2(keep_file.filepath, destpath)
+            except Exception:
+                print("FAILED TO COPY FILE")
+                
     for file_id, file_infos in contents2.items():
         if len(file_infos) > 1:
             # Delete the older files
@@ -301,7 +307,10 @@ def create_synchronized(
             for file_info in file_infos:
                 print("Removing", file_info.filepath)
                 if not dry_run:
-                    os.remove(file_info.filepath)
+                    try:
+                        os.remove(file_info.filepath)
+                    except Exception:
+                        print("FAILED TO REMOVE FILE")
         else:
             keep_file = file_infos[0]
 
@@ -313,8 +322,10 @@ def create_synchronized(
             print(
                 "Copying the kept file (", keep_file.filepath,
                 ") to", destpath)
-            shutil.copy2(keep_file.filepath, destpath)
-
+            try:
+                shutil.copy2(keep_file.filepath, destpath)
+            except Exception:
+                print("FAILED TO COPY FILE")
 
 
 if __name__ == "__main__":
