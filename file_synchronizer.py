@@ -12,6 +12,7 @@ import shutil
 import argparse
 import platform
 import subprocess
+import traceback
 from dataclasses import dataclass
 import numpy as np
 import tqdm
@@ -328,4 +329,9 @@ def create_synchronized(
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except Exception:
+        print("FAILED WITH ERROR")
+        traceback.print_exc()
+    
