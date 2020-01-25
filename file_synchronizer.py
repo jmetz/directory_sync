@@ -293,7 +293,7 @@ def create_synchronized(
                 if not dry_run:
                     try:
                         os.remove(file_info.filepath)
-                    except Exeption:
+                    except Exception:
                         print("FAILED TO REMOVE FILE")
         else:
             keep_file = file_infos[0]
