@@ -149,8 +149,9 @@ def main():
     print("Comparing contents...")
     output_filepath = os.path.join(__script_dir__, 'comparison.txt')
     write_comparison_to_file(contents1, contents2, filename=output_filepath)
-    create_synchronized(
-        contents1, contents2, create_copy=args.copy, dry_run=args.dry_run)
+    if not args.dry_run:    
+        create_synchronized(
+            contents1, contents2, create_copy=args.copy, dry_run=args.dry_run)
 
     if platform.system() == 'Darwin':       # macOS
         subprocess.call(('open', output_filepath))
