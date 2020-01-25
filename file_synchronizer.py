@@ -303,6 +303,9 @@ def create_synchronized(
             destpath = "%s%s" % (
                 contents2.root,
                 keep_file.filepath[len(contents1.root):])
+            destdir = os.path.dirname(destpath)
+            if not os.path.isdir(destdir):
+                os.makedirs(destdir)
             print(
                 "Copying the kept file (", keep_file.filepath,
                 ") to", destpath)
@@ -334,6 +337,10 @@ def create_synchronized(
             destpath = "%s%s" % (
                 contents1.root,
                 keep_file.filepath[len(contents2.root):])
+            destdir = os.path.dirname(destpath)
+            if not os.path.isdir(destdir):
+                os.makedirs(destdir)
+            
             print(
                 "Copying the kept file (", keep_file.filepath,
                 ") to", destpath)
